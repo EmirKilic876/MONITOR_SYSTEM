@@ -6,6 +6,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(SysMonitor C)
 
+# Visual Studio-a faýllary C++ hökmünde okatmak
+set_source_files_properties(client/client.c PROPERTIES LANGUAGE CXX)
+set_source_files_properties(server/server.c PROPERTIES LANGUAGE CXX)
+
 set(CMAKE_C_STANDARD 11)
 
 # SQLite amalgamation -- server/sqlite3.c we server/sqlite3.h
@@ -48,8 +52,5 @@ set(CMAKE_C_STANDARD 11)
 include_directories(common)
 include_directories(server)
 
-# Server programmasy
-add_executable(server_app server/server.c server/sqlite3.c)
-
-# Client programmasy
-add_executable(client_app client/client.c)
+add_executable(server_app server/server.cpp server/sqlite3.c)
+add_executable(client_app client/client.cpp)
