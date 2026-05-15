@@ -1,0 +1,12 @@
+# Build papkasy
+build/
+bin/
+
+# SQLite wagtlaýyn faýllary
+*.db
+*.db-journal
+
+# Compiled faýllar
+*.exe
+*.o
+*.obj
