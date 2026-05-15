@@ -24,5 +24,4 @@ jobs:
         with:
           name: MonitorSystem-Windows-EXEs
           path: |
-            build/Release/server_app.exe
-            build/Release/client_app.exe
+            build/Release/*.exe
