@@ -25,6 +25,8 @@
 #include <time.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdlib>
+#include <sqlite3.h>
 
 #pragma comment(lib,"ws2_32.lib")
 #pragma comment(lib,"iphlpapi.lib")
@@ -114,11 +116,11 @@ static Temps GetTempsWMI(void) {
         RPC_C_AUTHN_LEVEL_DEFAULT,RPC_C_IMP_LEVEL_IMPERSONATE,
         NULL,EOAC_NONE,NULL);
 
-    HRESULT hr = CoCreateInstance(&CLSID_WbemLocator,0,
+    HRESULT hr = CoCreateInstance(CLSID_WbemLocator,0,
         CLSCTX_INPROC_SERVER,&IID_IWbemLocator,(LPVOID*)&pLoc);
     if (FAILED(hr)) goto done;
 
-    hr = pLoc->lpVtbl->ConnectServer(pLoc,
+    hr = pLoc->ConnectServer(pLoc,
         L"ROOT\\WMI", NULL,NULL,0,NULL,NULL,NULL,&pSvc);
     if (FAILED(hr)) goto done;
 
@@ -129,7 +131,7 @@ static Temps GetTempsWMI(void) {
 
     // MSAcpi_ThermalZoneTemperature
     IEnumWbemClassObject *pEnum = NULL;
-    hr = pSvc->lpVtbl->ExecQuery(pSvc,
+    hr = pSvc->ExecQuery(pSvc,
         L"WQL",
         L"SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature",
         WBEM_FLAG_FORWARD_ONLY|WBEM_FLAG_RETURN_IMMEDIATELY,
@@ -137,19 +139,19 @@ static Temps GetTempsWMI(void) {
     if (SUCCEEDED(hr) && pEnum) {
         IWbemClassObject *pObj = NULL;
         ULONG ret = 0;
-        if (pEnum->lpVtbl->Next(pEnum,WBEM_INFINITE,1,&pObj,&ret)==S_OK) {
+        if (pEnum->Next(pEnum,WBEM_INFINITE,1,&pObj,&ret)==S_OK) {
             VARIANT vt;
-            pObj->lpVtbl->Get(pObj,L"CurrentTemperature",0,&vt,0,0);
+            pObj->Get(pObj,L"CurrentTemperature",0,&vt,0,0);
             t.cpu = ((float)vt.lVal - 2732.0f) / 10.0f; // Kelvin -> Celsius
             VariantClear(&vt);
-            pObj->lpVtbl->Release(pObj);
+            pObj->Release(pObj);
         }
-        pEnum->lpVtbl->Release(pEnum);
+        pEnum->Release(pEnum);
     }
 
 done:
-    if (pSvc) pSvc->lpVtbl->Release(pSvc);
-    if (pLoc) pLoc->lpVtbl->Release(pLoc);
+    if (pSvc) pSvc->Release(pSvc);
+    if (pLoc) pLoc->Release(pLoc);
     CoUninitialize();
     return t;
 }

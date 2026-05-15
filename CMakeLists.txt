@@ -11,7 +11,7 @@ include_directories(server)
 include_directories(client)
 
 # Server programmasy
-add_executable(server_app server/server.cpp)
+add_executable(server_app server/server.cpp third_party/sqlite/sqlite3.c)
 
 # Client programmasy
 add_executable(client_app client/client.cpp)
@@ -29,7 +29,11 @@ set(WIN_LIBS
     version 
     iphlpapi 
     user32
+    third_party/sqlite/sqlite3.c
 )
 
 target_link_libraries(server_app PRIVATE ${WIN_LIBS})
 target_link_libraries(client_app PRIVATE ${WIN_LIBS})
+target_include_directories(server_app PRIVATE
+    third_party/sqlite
+)
