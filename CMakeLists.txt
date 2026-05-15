@@ -1,56 +1,34 @@
-# =====================================================
-#  SysMonitor -- CMakeLists.txt (ROOT)
-#  cmake -B build -G "Visual Studio 17 2022" -A x64
-#  cmake --build build --config Release
-# =====================================================
-cmake_minimum_required(VERSION 3.16)
-project(SysMonitor C)
-
-# Visual Studio-a faýllary C++ hökmünde okatmak
-set_source_files_properties(client/client.c PROPERTIES LANGUAGE CXX)
-set_source_files_properties(server/server.c PROPERTIES LANGUAGE CXX)
-
-set(CMAKE_C_STANDARD 11)
-
-# SQLite amalgamation -- server/sqlite3.c we server/sqlite3.h
-# https://www.sqlite.org/download.html -> amalgamation indir
-
-# ---------- CLIENT ----------
-add_executable(SysMonitorClient
-    client/client.c
-)
-target_include_directories(SysMonitorClient PRIVATE common)
-target_link_libraries(SysMonitorClient
-    ws2_32 iphlpapi pdh powrprof wbemuuid psapi
-    advapi32 setupapi
-)
-# Windows subsystem (konsol ýok)
-set_target_properties(SysMonitorClient PROPERTIES
-    WIN32_EXECUTABLE TRUE
-    LINK_FLAGS "/SUBSYSTEM:WINDOWS"
-)
-
-# ---------- SERVER ----------
-add_executable(SysMonitorServer
-    server/server.c
-    server/sqlite3.c     # <- amalgamation
-)
-target_include_directories(SysMonitorServer PRIVATE common server)
-target_link_libraries(SysMonitorServer
-    ws2_32 advapi32
-)
-set_target_properties(SysMonitorServer PROPERTIES
-    WIN32_EXECUTABLE FALSE
-    LINK_FLAGS "/SUBSYSTEM:CONSOLE"
-)
-
 cmake_minimum_required(VERSION 3.10)
-project(MonitorSystem C)
+project(MonitorSystem)
 
-set(CMAKE_C_STANDARD 11)
+# C++ standartyny bellemek
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 1. Header (.h) faýllarynyň duran papkalaryny görkezmek (MÖHÜM!)
 include_directories(common)
 include_directories(server)
+include_directories(client)
 
-add_executable(server_app server/server.cpp server/sqlite3.c)
-add_executable(client_app client/client.cpp)
+# 2. Server programmasy
+# SQLite3 (C faýly) we Server (CPP faýly) bilelikde goşulmaly
+add_executable(server_app 
+    server/server.cpp 
+    server/sqlite3.c
+)
+
+# 3. Client programmasy
+add_executable(client_app 
+    client/client.cpp
+)
+
+# 4. Windows-yň ulgam kitaphanalaryny baglamak
+# ws2_32: Soketler (Network) üçin gerek
+# shell32, advapi32: Sistem maglumatlaryny almak üçin gerek bolup biler
+target_link_libraries(server_app ws2_32)
+target_link_libraries(client_app ws2_32 shell32 advapi32)
+
+# SQLite3 üçin Windows-da käwagt şu hem gerek bolýar
+if(WIN32)
+    target_compile_definitions(server_app PRIVATE SQLITE_ENABLE_RTREE)
+endif()

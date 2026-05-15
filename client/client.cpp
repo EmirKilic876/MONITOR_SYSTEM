@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <cstdio>
+#include <cstdlib>
 
 #pragma comment(lib,"ws2_32.lib")
 #pragma comment(lib,"iphlpapi.lib")
