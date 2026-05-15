@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 project(MonitorSystem)
 
+# C++17 standartyny ulanmak
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Header faýllary üçin papkalar
+# Header (.h) faýllarynyň papkalary
 include_directories(common)
 include_directories(server)
 include_directories(client)
@@ -15,17 +16,19 @@ add_executable(server_app server/server.cpp)
 # Client programmasy
 add_executable(client_app client/client.cpp)
 
-# --- IŇ MÖHÜM BÖLÜM: Kitaphanalary baglamak ---
-# LNK1120 ýalňyşlygyny aýyrmak üçin şu aşakdakylar hökmandyr:
-
+# --- Windows Kitaphanalaryny Baglamak (LNK1120-ni düzetmek üçin) ---
+# Pdh: CPU monitoring üçin
+# Iphlpapi: IP/Network maglumatlary üçin
+# Ws2_32: Soketler üçin
+# Advapi32: Registry we sistema maglumatlary üçin
 set(WIN_LIBS 
-    ws2_32       # Tor (Network) üçin
-    advapi32     # Registry we Sistema maglumatlary üçin
-    shell32      # Shell funksiýalary üçin
-    pdh          # CPU we Performance Monitoring üçin (MÖHÜM!)
-    version      # Faýl wersiýalary üçin
-    iphlpapi     # IP we Network adapter maglumatlary üçin
-    user32       # Windows GUI/System metricleri üçin
+    ws2_32 
+    advapi32 
+    shell32 
+    pdh 
+    version 
+    iphlpapi 
+    user32
 )
 
 target_link_libraries(server_app PRIVATE ${WIN_LIBS})
