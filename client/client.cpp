@@ -104,57 +104,149 @@ static float GetCpuFreqMHz(void) {
 }
 
 // ---- WMI üsti bilen temperaturalary al ----
-typedef struct { float cpu; float mb; float hdd; float gpu; } Temps;
+```cpp id="2r6l0q"
+typedef struct
+{
+    float cpu;
+    float mb;
+    float hdd;
+    float gpu;
+}
+Temps;
 
-static Temps GetTempsWMI(void) {
+static Temps GetTempsWMI(void)
+{
     Temps t = {0,0,0,0};
-    IWbemLocator *pLoc = NULL;
-    IWbemServices *pSvc = NULL;
 
-    CoInitializeEx(0, COINIT_MULTITHREADED);
-    CoInitializeSecurity(NULL,-1,NULL,NULL,
-        RPC_C_AUTHN_LEVEL_DEFAULT,RPC_C_IMP_LEVEL_IMPERSONATE,
-        NULL,EOAC_NONE,NULL);
+    HRESULT hr;
 
-    HRESULT hr = CoCreateInstance(CLSID_WbemLocator,0,
-        CLSCTX_INPROC_SERVER,&IID_IWbemLocator,(LPVOID*)&pLoc);
-    if (FAILED(hr)) goto done;
+    IWbemLocator* pLoc = NULL;
+    IWbemServices* pSvc = NULL;
+    IEnumWbemClassObject* pEnum = NULL;
 
-    hr = pLoc->ConnectServer(pLoc,
-        L"ROOT\\WMI", NULL,NULL,0,NULL,NULL,NULL,&pSvc);
-    if (FAILED(hr)) goto done;
+    hr = CoInitializeEx(
+        0,
+        COINIT_MULTITHREADED
+    );
 
-    CoSetProxyBlanket((IUnknown*)pSvc,
-        RPC_C_AUTHN_WINNT,RPC_C_AUTHZ_NONE,NULL,
-        RPC_C_AUTHN_LEVEL_CALL,RPC_C_IMP_LEVEL_IMPERSONATE,
-        NULL,EOAC_NONE);
+    if (FAILED(hr))
+        return t;
 
-    // MSAcpi_ThermalZoneTemperature
-    IEnumWbemClassObject *pEnum = NULL;
-    hr = pSvc->ExecQuery(pSvc,
-        L"WQL",
-        L"SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature",
-        WBEM_FLAG_FORWARD_ONLY|WBEM_FLAG_RETURN_IMMEDIATELY,
-        NULL,&pEnum);
-    if (SUCCEEDED(hr) && pEnum) {
-        IWbemClassObject *pObj = NULL;
+    CoInitializeSecurity(
+        NULL,
+        -1,
+        NULL,
+        NULL,
+        RPC_C_AUTHN_LEVEL_DEFAULT,
+        RPC_C_IMP_LEVEL_IMPERSONATE,
+        NULL,
+        EOAC_NONE,
+        NULL
+    );
+
+    hr = CoCreateInstance(
+        CLSID_WbemLocator,
+        NULL,
+        CLSCTX_INPROC_SERVER,
+        IID_IWbemLocator,
+        (LPVOID*)&pLoc
+    );
+
+    if (FAILED(hr) || !pLoc)
+        goto done;
+
+    hr = pLoc->ConnectServer(
+        _bstr_t(L"ROOT\\WMI"),
+        NULL,
+        NULL,
+        NULL,
+        0,
+        NULL,
+        NULL,
+        &pSvc
+    );
+
+    if (FAILED(hr) || !pSvc)
+        goto done;
+
+    hr = CoSetProxyBlanket(
+        pSvc,
+        RPC_C_AUTHN_WINNT,
+        RPC_C_AUTHZ_NONE,
+        NULL,
+        RPC_C_AUTHN_LEVEL_CALL,
+        RPC_C_IMP_LEVEL_IMPERSONATE,
+        NULL,
+        EOAC_NONE
+    );
+
+    if (FAILED(hr))
+        goto done;
+
+    hr = pSvc->ExecQuery(
+        bstr_t("WQL"),
+        bstr_t("SELECT * FROM MSAcpi_ThermalZoneTemperature"),
+        WBEM_FLAG_FORWARD_ONLY |
+        WBEM_FLAG_RETURN_IMMEDIATELY,
+        NULL,
+        &pEnum
+    );
+
+    if (SUCCEEDED(hr) && pEnum)
+    {
+        IWbemClassObject* pObj = NULL;
+
         ULONG ret = 0;
-        if (pEnum->Next(pEnum,WBEM_INFINITE,1,&pObj,&ret)==S_OK) {
+
+        hr = pEnum->Next(
+            WBEM_INFINITE,
+            1,
+            &pObj,
+            &ret
+        );
+
+        if (ret)
+        {
             VARIANT vt;
-            pObj->Get(pObj,L"CurrentTemperature",0,&vt,0,0);
-            t.cpu = ((float)vt.lVal - 2732.0f) / 10.0f; // Kelvin -> Celsius
+
+            VariantInit(&vt);
+
+            hr = pObj->Get(
+                L"CurrentTemperature",
+                0,
+                &vt,
+                0,
+                0
+            );
+
+            if (SUCCEEDED(hr) && vt.vt == VT_I4)
+            {
+                t.cpu =
+                    ((float)vt.lVal - 2732.0f) / 10.0f;
+            }
+
             VariantClear(&vt);
-            pObj->Release(pObj);
+
+            pObj->Release();
         }
-        pEnum->Release(pEnum);
+
+        pEnum->Release();
     }
 
 done:
-    if (pSvc) pSvc->Release(pSvc);
-    if (pLoc) pLoc->Release(pLoc);
+
+    if (pSvc)
+        pSvc->Release();
+
+    if (pLoc)
+        pLoc->Release();
+
     CoUninitialize();
+
     return t;
 }
+```
+
 
 // ---- CPU adyny al ----
 static void GetCpuName(char *buf, int sz) {
@@ -170,21 +262,76 @@ static void GetCpuName(char *buf, int sz) {
 }
 
 // ---- OS wersiýasyny al ----
-static void GetOsVersion(char *buf, int sz) {
-    HKEY hKey;
-    char name[128]="", ver[64]="", build[32]="";
-    DWORD s;
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+```cpp id="m9v2c7"
+static void GetOsVersion(char* buf, int sz)
+{
+    if (!buf || sz <= 0)
+        return;
+
+    buf[0] = '\0';
+
+    HKEY hKey = NULL;
+
+    char productName[128] = "Unknown Windows";
+    char build[32] = "Unknown";
+
+    DWORD size;
+    LONG status;
+
+    status = RegOpenKeyExA(
+        HKEY_LOCAL_MACHINE,
         "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-        0,KEY_READ,&hKey)==ERROR_SUCCESS) {
-        s=sizeof(name);
-        RegQueryValueExA(hKey,"ProductName",NULL,NULL,(LPBYTE)name,&s);
-        s=sizeof(build);
-        RegQueryValueExA(hKey,"CurrentBuild",NULL,NULL,(LPBYTE)build,&s);
-        RegCloseKey(hKey);
+        0,
+        KEY_READ,
+        &hKey
+    );
+
+    if (status != ERROR_SUCCESS)
+    {
+        strncpy_s(
+            buf,
+            sz,
+            "Unknown Windows",
+            _TRUNCATE
+        );
+
+        return;
     }
-    snprintf(buf,sz,"%s (Build %s)",name,build);
+
+    size = sizeof(productName);
+
+    RegQueryValueExA(
+        hKey,
+        "ProductName",
+        NULL,
+        NULL,
+        (LPBYTE)productName,
+        &size
+    );
+
+    size = sizeof(build);
+
+    RegQueryValueExA(
+        hKey,
+        "CurrentBuild",
+        NULL,
+        NULL,
+        (LPBYTE)build,
+        &size
+    );
+
+    RegCloseKey(hKey);
+
+    snprintf(
+        buf,
+        sz,
+        "%s (Build %s)",
+        productName,
+        build
+    );
 }
+```
+
 
 // ---- RAM ----
 static void FillRam(SysPacket *p) {
@@ -230,57 +377,154 @@ static void FillDrives(SysPacket *p) {
 }
 
 // ---- Tor kartasy tizligi ----
-typedef struct { UINT64 in; UINT64 out; DWORD ifIdx; } NetSnap;
+```cpp id="w8n3qp"
+typedef struct
+{
+    UINT64 in;
+    UINT64 out;
+    DWORD  ifIdx;
+}
+NetSnap;
+
 static NetSnap g_prevNet[MAX_NICS];
-static DWORD   g_prevNetTime = 0;
-static int     g_nicCount    = 0;
 
-static void FillNics(SysPacket *p) {
+static ULONGLONG g_prevNetTime = 0;
+
+static int g_nicCount = 0;
+
+static void FillNics(SysPacket* p)
+{
+    if (!p)
+        return;
+
     ULONG bufLen = 0;
-    GetAdaptersInfo(NULL, &bufLen);
-    IP_ADAPTER_INFO *aBuf = (IP_ADAPTER_INFO*)malloc(bufLen);
-    if (!aBuf) return;
-    if (GetAdaptersInfo(aBuf, &bufLen) != NO_ERROR) { free(aBuf); return; }
 
-    // MIB_IFTABLE
+    if (GetAdaptersInfo(NULL, &bufLen)
+        != ERROR_BUFFER_OVERFLOW)
+    {
+        return;
+    }
+
+    IP_ADAPTER_INFO* aBuf =
+        (IP_ADAPTER_INFO*)malloc(bufLen);
+
+    if (!aBuf)
+        return;
+
+    if (GetAdaptersInfo(aBuf, &bufLen)
+        != NO_ERROR)
+    {
+        free(aBuf);
+        return;
+    }
+
     ULONG tLen = 0;
-    GetIfTable(NULL, &tLen, FALSE);
-    MIB_IFTABLE *tbl = (MIB_IFTABLE*)malloc(tLen);
-    GetIfTable(tbl, &tLen, FALSE);
 
-    DWORD now = GetTickCount();
-    double elapsed = (g_prevNetTime>0) ? (now - g_prevNetTime)/1000.0 : 1.0;
+    GetIfTable(NULL, &tLen, FALSE);
+
+    MIB_IFTABLE* tbl =
+        (MIB_IFTABLE*)malloc(tLen);
+
+    if (!tbl)
+    {
+        free(aBuf);
+        return;
+    }
+
+    if (GetIfTable(tbl, &tLen, FALSE)
+        != NO_ERROR)
+    {
+        free(aBuf);
+        free(tbl);
+        return;
+    }
+
+    ULONGLONG now = GetTickCount64();
+
+    double elapsed =
+        (g_prevNetTime > 0)
+        ? (double)(now - g_prevNetTime) / 1000.0
+        : 1.0;
 
     int idx = 0;
-    for (IP_ADAPTER_INFO *a = aBuf; a && idx < MAX_NICS; a = a->Next) {
-        NicInfo *ni = &p->nics[idx];
-        strncpy_s(ni->name,sizeof(ni->name),a->Description,_TRUNCATE);
-        strncpy_s(ni->ipAddr,sizeof(ni->ipAddr),
-            a->IpAddressList.IpAddress.String,_TRUNCATE);
 
-        // Tizligi tap
-        for (DWORD i = 0; i < tbl->dwNumEntries; i++) {
-            MIB_IFROW *row = &tbl->table[i];
-            if (row->dwIndex == a->Index) {
-                ni->totalBandMbps = row->dwSpeed / (1024.0*1024.0);
-                if (g_prevNetTime > 0 && idx < MAX_NICS) {
-                    UINT64 dIn  = row->dwInOctets  - g_prevNet[idx].in;
-                    UINT64 dOut = row->dwOutOctets - g_prevNet[idx].out;
-                    ni->recvMbps = (dIn  * 8.0) / (elapsed * 1024.0*1024.0);
-                    ni->sendMbps = (dOut * 8.0) / (elapsed * 1024.0*1024.0);
+    for (
+        IP_ADAPTER_INFO* a = aBuf;
+        a && idx < MAX_NICS;
+        a = a->Next
+    )
+    {
+        NicInfo* ni = &p->nics[idx];
+
+        ZeroMemory(ni, sizeof(NicInfo));
+
+        strncpy_s(
+            ni->name,
+            sizeof(ni->name),
+            a->Description,
+            _TRUNCATE
+        );
+
+        strncpy_s(
+            ni->ipAddr,
+            sizeof(ni->ipAddr),
+            a->IpAddressList.IpAddress.String,
+            _TRUNCATE
+        );
+
+        for (DWORD i = 0; i < tbl->dwNumEntries; i++)
+        {
+            MIB_IFROW* row = &tbl->table[i];
+
+            if (row->dwIndex == a->Index)
+            {
+                ni->totalBandMbps =
+                    row->dwSpeed /
+                    (1024.0 * 1024.0);
+
+                if (g_prevNetTime > 0)
+                {
+                    UINT64 dIn =
+                        (UINT64)row->dwInOctets -
+                        g_prevNet[idx].in;
+
+                    UINT64 dOut =
+                        (UINT64)row->dwOutOctets -
+                        g_prevNet[idx].out;
+
+                    ni->recvMbps =
+                        (dIn * 8.0)
+                        / (elapsed * 1024.0 * 1024.0);
+
+                    ni->sendMbps =
+                        (dOut * 8.0)
+                        / (elapsed * 1024.0 * 1024.0);
                 }
-                g_prevNet[idx].in    = row->dwInOctets;
-                g_prevNet[idx].out   = row->dwOutOctets;
-                g_prevNet[idx].ifIdx = row->dwIndex;
+
+                g_prevNet[idx].in =
+                    (UINT64)row->dwInOctets;
+
+                g_prevNet[idx].out =
+                    (UINT64)row->dwOutOctets;
+
+                g_prevNet[idx].ifIdx =
+                    row->dwIndex;
+
                 break;
             }
         }
+
         idx++;
     }
+
     p->nicCount = (UINT8)idx;
+
     g_prevNetTime = now;
-    free(aBuf); free(tbl);
+
+    free(aBuf);
+    free(tbl);
 }
+```
 
 // ---- Batareýa ----
 static void FillBattery(SysPacket *p) {
