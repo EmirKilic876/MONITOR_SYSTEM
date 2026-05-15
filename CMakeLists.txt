@@ -29,6 +29,9 @@ set(WIN_LIBS
     version 
     iphlpapi 
     user32
+    target_include_directories(server_app PRIVATE third_party/sqlite)
+
+    target_sources(server_app PRIVATE
     third_party/sqlite/sqlite3.c
 )
 

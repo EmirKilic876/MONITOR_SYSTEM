@@ -12,6 +12,7 @@
 #define MAX_PROCESSES      10   // iň köp ýük döredýän prosesler
 #define MAX_PROC_NAME      64
 #define MAGIC              0xDEADBEEF
+#define MAX_HOSTNAME_LEN 64
 
 // ---------- Kritiki serhetler (80%) ----------
 #define CRIT_CPU_PCT       80.0f

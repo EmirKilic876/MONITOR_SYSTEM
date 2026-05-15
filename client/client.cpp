@@ -104,7 +104,7 @@ static float GetCpuFreqMHz(void) {
 }
 
 // ---- WMI üsti bilen temperaturalary al ----
-```cpp id="2r6l0q"
+ id="2r6l0q"
 typedef struct
 {
     float cpu;
@@ -262,7 +262,7 @@ static void GetCpuName(char *buf, int sz) {
 }
 
 // ---- OS wersiýasyny al ----
-```cpp id="m9v2c7"
+ id="m9v2c7"
 static void GetOsVersion(char* buf, int sz)
 {
     if (!buf || sz <= 0)
@@ -377,7 +377,7 @@ static void FillDrives(SysPacket *p) {
 }
 
 // ---- Tor kartasy tizligi ----
-```cpp id="w8n3qp"
+ id="w8n3qp"
 typedef struct
 {
     UINT64 in;
